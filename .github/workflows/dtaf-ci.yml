@@ -1,0 +1,127 @@
+name: DTAF Complete Lab Environment
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_time:
+        description: 'Run duration (minutes)'
+        required: true
+        default: '120'
+      run_experiments:
+        description: 'Run experiments automatically'
+        required: true
+        default: 'true'
+        type: boolean
+
+jobs:
+  setup-dtaf:
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ github.event.inputs.run_time }}
+    
+    steps:
+    - name: Checkout DTAF Project
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        
+    - name: Setup Ubuntu Environment
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          build-essential \
+          autoconf \
+          automake \
+          libxmu-dev \
+          tcl8.6-dev \
+          tk8.6-dev \
+          python3 \
+          python3-pip \
+          python3-venv \
+          python3-dev \
+          gcc \
+          g++ \
+          make \
+          wget \
+          curl \
+          git \
+          dos2unix \
+          tree \
+          zip \
+          unzip
+        
+    - name: Install NS2
+      run: |
+        cd /tmp
+        wget -q https://sourceforge.net/projects/nsnam/files/allinone/ns-allinone-2.35/ns-allinone-2.35.tar.gz
+        tar -xzvf ns-allinone-2.35.tar.gz
+        cd ns-allinone-2.35
+        ./install 2>&1 | tail -50
+        export PATH="/tmp/ns-allinone-2.35/ns-2.35:$PATH"
+        echo "PATH=$PATH" >> $GITHUB_ENV
+        
+    - name: Setup Python Environment
+      run: |
+        python3 -m venv dtaf_venv
+        source dtaf_venv/bin/activate
+        pip install --upgrade pip
+        pip install numpy pandas matplotlib scipy seaborn jupyter notebook
+        echo "PYTHON_VENV=$(pwd)/dtaf_venv" >> $GITHUB_ENV
+    
+    - name: Create Complete DTAF Project Structure
+      run: |
+        cd ${{ github.workspace }}
+        
+        # إنشاء الهيكل الكامل للمجلدات
+        echo "📁 Creating project structure..."
+        mkdir -p .github/workflows
+        mkdir -p docker
+        mkdir -p src
+        mkdir -p scripts
+        mkdir -p config
+        mkdir -p tests
+        mkdir -p docs
+        mkdir -p results
+        mkdir -p logs
+        
+        # 1. ملف README.md
+        echo "📄 Creating README.md..."
+        cat > README.md << 'EOF'
+# 🚀 DTAF Project - Dynamic Traffic-Aware Filtering
+## University of Hail - Final Project 2024
+
+[![DTAF CI/CD](https://github.com/${{ github.repository_owner }}/DTAF_Project/workflows/DTAF%20Complete%20Lab%20Environment/badge.svg)](https://github.com/${{ github.repository_owner }}/DTAF_Project/actions)
+[![Docker](https://img.shields.io/badge/Docker-Ready-blue)](https://hub.docker.com/r/${{ github.repository_owner }}/dtaf-project)
+[![NS2](https://img.shields.io/badge/NS2-v2.35-green)](https://www.isi.edu/nsnam/ns/)
+[![Python](https://img.shields.io/badge/Python-3.8+-yellow)](https://python.org)
+
+## 📋 Project Overview
+Dynamic Traffic-Aware Filtering (DTAF) is an adaptive threshold mechanism for defending against Denial-of-Service (DoS) attacks in computer networks.
+
+## 🎯 Key Features
+- ✅ **Adaptive Threshold Algorithm** using Exponential Moving Averages
+- ✅ **Complete NS2 Integration** as a reusable module
+- ✅ **Automated Testing** with multiple attack scenarios
+- ✅ **Comprehensive Analysis** with Python visualization
+- ✅ **Ready-to-use Virtual Lab** environments
+
+## 🛠️ Quick Start
+
+### Option 1: GitHub Actions (Recommended)
+1. Go to **Actions** tab
+2. Select **"DTAF Complete Lab Environment"**
+3. Click **"Run workflow"**
+4. Set duration (120 minutes recommended)
+5. Download results from **Artifacts**
+
+### Option 2: Docker (Local)
+```bash
+# Clone repository
+git clone https://github.com/${{ github.repository_owner }}/DTAF_Project.git
+cd DTAF_Project/docker
+
+# Build and run
+docker-compose up --build
+
+# Access container
+docker exec -it dtaf_research_lab bash
+source activate.sh
