@@ -44,10 +44,7 @@ jobs:
           wget \
           curl \
           git \
-          dos2unix \
-          tree \
-          zip \
-          unzip
+          dos2unix
         
     - name: Install NS2
       run: |
@@ -64,64 +61,53 @@ jobs:
         python3 -m venv dtaf_venv
         source dtaf_venv/bin/activate
         pip install --upgrade pip
-        pip install numpy pandas matplotlib scipy seaborn jupyter notebook
+        pip install numpy pandas matplotlib scipy seaborn jupyter
         echo "PYTHON_VENV=$(pwd)/dtaf_venv" >> $GITHUB_ENV
-    
-    - name: Create Complete DTAF Project Structure
+        
+    - name: Compile DTAF Module
       run: |
         cd ${{ github.workspace }}
+        chmod +x compile_dtaf.sh
+        ./compile_dtaf.sh
         
-        # إنشاء الهيكل الكامل للمجلدات
-        echo "📁 Creating project structure..."
-        mkdir -p .github/workflows
-        mkdir -p docker
-        mkdir -p src
-        mkdir -p scripts
-        mkdir -p config
-        mkdir -p tests
-        mkdir -p docs
-        mkdir -p results
-        mkdir -p logs
+    - name: Run DTAF Experiments
+      if: ${{ github.event.inputs.run_experiments == 'true' }}
+      run: |
+        cd ${{ github.workspace }}
+        chmod +x run_all_experiments.sh
+        timeout 1800 ./run_all_experiments.sh || echo "Experiments completed or timed out"
         
-        # 1. ملف README.md
-        echo "📄 Creating README.md..."
-        cat > README.md << 'EOF'
-# 🚀 DTAF Project - Dynamic Traffic-Aware Filtering
-## University of Hail - Final Project 2024
-
-[![DTAF CI/CD](https://github.com/${{ github.repository_owner }}/DTAF_Project/workflows/DTAF%20Complete%20Lab%20Environment/badge.svg)](https://github.com/${{ github.repository_owner }}/DTAF_Project/actions)
-[![Docker](https://img.shields.io/badge/Docker-Ready-blue)](https://hub.docker.com/r/${{ github.repository_owner }}/dtaf-project)
-[![NS2](https://img.shields.io/badge/NS2-v2.35-green)](https://www.isi.edu/nsnam/ns/)
-[![Python](https://img.shields.io/badge/Python-3.8+-yellow)](https://python.org)
-
-## 📋 Project Overview
-Dynamic Traffic-Aware Filtering (DTAF) is an adaptive threshold mechanism for defending against Denial-of-Service (DoS) attacks in computer networks.
-
-## 🎯 Key Features
-- ✅ **Adaptive Threshold Algorithm** using Exponential Moving Averages
-- ✅ **Complete NS2 Integration** as a reusable module
-- ✅ **Automated Testing** with multiple attack scenarios
-- ✅ **Comprehensive Analysis** with Python visualization
-- ✅ **Ready-to-use Virtual Lab** environments
-
-## 🛠️ Quick Start
-
-### Option 1: GitHub Actions (Recommended)
-1. Go to **Actions** tab
-2. Select **"DTAF Complete Lab Environment"**
-3. Click **"Run workflow"**
-4. Set duration (120 minutes recommended)
-5. Download results from **Artifacts**
-
-### Option 2: Docker (Local)
-```bash
-# Clone repository
-git clone https://github.com/${{ github.repository_owner }}/DTAF_Project.git
-cd DTAF_Project/docker
-
-# Build and run
-docker-compose up --build
-
-# Access container
-docker exec -it dtaf_research_lab bash
-source activate.sh
+    - name: Generate Analysis Reports
+      run: |
+        cd ${{ github.workspace }}
+        source dtaf_venv/bin/activate
+        python3 scripts/advanced_analyze.py
+        
+    - name: Upload Results
+      uses: actions/upload-artifact@v4
+      with:
+        name: DTAF-Results-${{ github.run_id }}
+        path: |
+          results/
+          logs/
+          *.html
+          *.png
+          
+    - name: Create Summary Report
+      run: |
+        echo "# DTAF Project Run Report" > summary.md
+        echo "## Run ID: ${{ github.run_id }}" >> summary.md
+        echo "## Repository: https://github.com/tawheebalswfy/DTAF_Project" >> summary.md
+        echo "## Date: $(date)" >> summary.md
+        echo "## Duration: ${{ github.event.inputs.run_time }} minutes" >> summary.md
+        echo "" >> summary.md
+        echo "### Generated Files:" >> summary.md
+        find results/ -name "*.tr" | head -10 | while read file; do
+          echo "- $file ($(wc -l < "$file") lines)" >> summary.md
+        done
+        
+    - name: Upload Summary
+      uses: actions/upload-artifact@v4
+      with:
+        name: Summary-Report
+        path: summary.md
